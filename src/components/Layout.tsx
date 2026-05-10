@@ -61,7 +61,33 @@ export function Layout() {
               <a href={shopLinks.tel}>{shop.phoneDisplay}</a>
             </p>
           </div>
+          <div>
+            <p className="foot__label">Gestion</p>
+            <p>
+              <Link to="/admin" className="foot__admin-btn">
+                Admin
+              </Link>
+            </p>
+          </div>
         </div>
+        <p className="foot__dev">
+          Developed by{' '}
+          <a
+            href="https://instagram.com/yourfavtechnerd"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="foot__dev-link"
+            aria-label="Instagram yourfavtechnerd"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14">
+              <path
+                fill="currentColor"
+                d="M7.75 2h8.5A5.75 5.75 0 0 1 22 7.75v8.5A5.75 5.75 0 0 1 16.25 22h-8.5A5.75 5.75 0 0 1 2 16.25v-8.5A5.75 5.75 0 0 1 7.75 2m0 1.5A4.25 4.25 0 0 0 3.5 7.75v8.5a4.25 4.25 0 0 0 4.25 4.25h8.5a4.25 4.25 0 0 0 4.25-4.25v-8.5a4.25 4.25 0 0 0-4.25-4.25h-8.5m8.75 1.75a1 1 0 1 1 0 2 1 1 0 0 1 0-2M12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10m0 1.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"
+              />
+            </svg>
+            @yourfavtechnerd
+          </a>
+        </p>
         <p className="foot__copy">Prix affiches en dinar algerien.</p>
       </footer>
 

@@ -1,0 +1,56 @@
+.admin-auth {
+  min-height: 70svh;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.admin-auth__card {
+  width: min(420px, 100%);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  padding: 1rem;
+}
+
+.admin-auth__card h1 {
+  margin: 0;
+  font-size: 1.35rem;
+  color: var(--ink-strong);
+}
+
+.admin-auth__card p {
+  margin: 0.45rem 0 0.8rem;
+  color: var(--ink-soft);
+}
+
+.admin-auth__card input {
+  width: 100%;
+  min-height: 2.6rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0 0.7rem;
+}
+
+.admin-auth__card button {
+  margin-top: 0.7rem;
+  width: 100%;
+  min-height: 2.6rem;
+  border: 0;
+  border-radius: 10px;
+  background: var(--accent-strong);
+  color: #fff;
+  font-weight: 700;
+}
+
+.admin-auth__error {
+  margin-top: 0.55rem !important;
+  color: #a4003b !important;
+  font-weight: 600;
+}
+
+.admin-auth__lock {
+  margin-top: 0.55rem !important;
+  color: var(--accent-dark) !important;
+  font-weight: 600;
+}

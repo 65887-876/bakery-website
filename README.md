@@ -25,6 +25,26 @@ Pre-requis:
 npm install
 ```
 
+## Images Cloudinary (admin)
+
+L'upload image depuis `/admin` utilise Cloudinary en mode **signed** (plus securise), via une route serverless `api/cloudinary-signature`.
+
+1. Copier `.env.example` vers `.env`
+2. Renseigner:
+   - `VITE_CLOUDINARY_CLOUD_NAME`
+   - `VITE_CLOUDINARY_UPLOAD_PRESET` (optionnel, unsigned preset pour fallback en `npm run dev`)
+   - `CLOUDINARY_API_KEY`
+   - `CLOUDINARY_API_SECRET`
+   - `CLOUDINARY_UPLOAD_PRESET` (preset signed, ex: `BAKERY`)
+   - `CLOUDINARY_FOLDER` (optionnel)
+3. Redemarrer `npm run dev`
+
+Notes:
+- ne jamais exposer `CLOUDINARY_API_SECRET` dans le frontend.
+- en local, utilisez `vercel dev` pour la signature (`/api/*`), ou `npm run dev` avec `VITE_CLOUDINARY_UPLOAD_PRESET` (fallback unsigned).
+
+Pour Vercel, ajoutez les memes variables dans **Project Settings -> Environment Variables** puis redeployez.
+
 ## Lancer en local
 
 ```bash

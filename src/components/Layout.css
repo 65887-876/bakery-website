@@ -144,6 +144,39 @@
   color: var(--ink-soft);
 }
 
+.foot__admin-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.2rem;
+  padding: 0 0.95rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent-strong) 45%, var(--line));
+  background: var(--accent-soft);
+  color: var(--accent-dark) !important;
+  font-weight: 700 !important;
+  text-decoration: none !important;
+  cursor: pointer;
+}
+
+.foot__admin-btn:hover {
+  background: color-mix(in srgb, var(--accent-soft) 70%, white);
+}
+
+.foot__dev {
+  max-width: 1060px;
+  margin: 0.95rem auto 0;
+  text-align: center;
+  font-size: 0.84rem;
+  color: var(--ink-soft);
+}
+
+.foot__dev-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
 .wa-float {
   position: fixed;
   right: 1rem;
