@@ -5,7 +5,7 @@ export const shop = {
   dailyHours: '11h - 23h',
   phoneDisplay: '0672 83 61 21',
   phoneRaw: '+213672836121',
-  whatsappUrl: 'https://wa.me/213672836121',
+  whatsappUrl: 'https://wa.me/213665731689',
   menuCurrency: 'DA',
 } as const
 
