@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { uploadImageToCloudinary } from '../config/cloudinary'
 import { AdvancedSettings } from '../components/admin/AdvancedSettings'
-import { AdminLayout } from '../components/admin/AdminLayout'
 import { CategorySelector } from '../components/admin/CategorySelector'
 import { ConfirmModal } from '../components/admin/ConfirmModal'
 import { ProductCard } from '../components/admin/ProductCard'
@@ -87,7 +86,6 @@ export function Admin() {
     return data
   })
   const [selectedId, setSelectedId] = useState<string>(() => readMenuData()[0]?.id ?? '')
-  const [activeTab, setActiveTab] = useState<'categories' | 'products' | 'settings'>('categories')
   const [toast, setToast] = useState('')
   const [newCategoryTitle, setNewCategoryTitle] = useState('')
   const [savedSnapshot, setSavedSnapshot] = useState<string>(() =>
@@ -219,7 +217,6 @@ export function Admin() {
     setDraft(nextDraft)
     setSelectedId(next.id)
     setNewCategoryTitle('')
-    setActiveTab('categories')
     setToast('Categorie ajoutee')
   }
 
@@ -322,7 +319,15 @@ export function Admin() {
         : 'Cette action ecrase toutes les modifications locales.'
 
   return (
-    <AdminLayout activeTab={activeTab} onTabChange={setActiveTab}>
+    <div className="admin-shell">
+      <header className="admin-topbar">
+        <div>
+          <p className="admin-topbar__eyebrow">Al Maroua Bakery</p>
+          <h1>Gestion du menu</h1>
+        </div>
+      </header>
+
+      <main className="admin-content">
       {recoverDraft && (
         <section className="admin-recover">
           <p>Des modifications non sauvegardees ont ete retrouvees.</p>
@@ -337,92 +342,63 @@ export function Admin() {
         </section>
       )}
 
-      {activeTab === 'categories' && (
-        <CategorySelector
-          categories={draft}
-          selectedId={selectedId}
-          onSelectCategory={(categoryId) => {
-            setSelectedId(categoryId)
-            setActiveTab('products')
-          }}
-          onEditCategory={(categoryId) => {
-            setSelectedId(categoryId)
-            setActiveTab('products')
-          }}
-        />
-      )}
+      <CategorySelector
+        categories={draft}
+        selectedId={selectedId}
+        onSelectCategory={(categoryId) => setSelectedId(categoryId)}
+        onEditCategory={(categoryId) => setSelectedId(categoryId)}
+      />
 
-      {activeTab === 'products' && (
-        <section className="admin-panel">
-          <div className="admin-products-head">
+      <section className="admin-panel admin-panel--products">
+        <div className="admin-products-head">
+          <div>
             <h2>{selectedCategory?.title ?? 'Selectionnez une categorie'}</h2>
             <p>{selectedCategory?.items.length ?? 0} produits</p>
           </div>
-
-          {selectedCategory && (
-            <label className="admin-category-meta">
-              Sous-titre categorie
-              <input
-                value={selectedCategory.smallNote ?? ''}
-                onChange={(event) =>
-                  updateCategory(selectedCategory.id, {
-                    smallNote: event.target.value,
-                  })
-                }
-              />
-            </label>
-          )}
-
-          <div className="admin-products-list">
-            {selectedCategory?.items.map((product, index) => (
-              <ProductCard
-                key={`${product.name}-${index}`}
-                categoryId={selectedCategory.id}
-                index={index}
-                product={product}
-                onEdit={() => openEditProductModal(index)}
-                onDelete={() => requestDeleteProduct(index)}
-              />
-            ))}
-          </div>
-
-          <button
-            type="button"
-            className="admin-fab"
-            onClick={openCreateProductModal}
-            disabled={!selectedCategory}
-          >
+          <button type="button" className="admin-add-inline" onClick={openCreateProductModal} disabled={!selectedCategory}>
             + Ajouter produit
           </button>
-        </section>
-      )}
+        </div>
 
-      {activeTab === 'settings' && (
-        <section className="admin-panel">
-          <h2>Parametres</h2>
-          {selectedCategory && (
-            <label className="admin-category-meta">
-              Nom categorie
-              <input
-                value={selectedCategory.title}
-                onChange={(event) =>
-                  updateCategory(selectedCategory.id, {
-                    title: event.target.value,
-                  })
-                }
-              />
-            </label>
-          )}
-          <AdvancedSettings
-            newCategoryTitle={newCategoryTitle}
-            onNewCategoryTitleChange={setNewCategoryTitle}
-            onAddCategory={addCategory}
-            onDeleteSelectedCategory={() => setConfirmState({ type: 'delete-category' })}
-            onResetMenu={() => setConfirmState({ type: 'reset-menu' })}
-            disableDeleteCategory={draft.length <= 1}
-          />
-        </section>
-      )}
+        {selectedCategory && (
+          <label className="admin-category-meta">
+            Sous-titre categorie
+            <input
+              value={selectedCategory.smallNote ?? ''}
+              onChange={(event) =>
+                updateCategory(selectedCategory.id, {
+                  smallNote: event.target.value,
+                })
+              }
+            />
+          </label>
+        )}
+
+        <div className="admin-products-list">
+          {selectedCategory?.items.map((product, index) => (
+            <ProductCard
+              key={`${product.name}-${index}`}
+              categoryId={selectedCategory.id}
+              index={index}
+              product={product}
+              onEdit={() => openEditProductModal(index)}
+              onDelete={() => requestDeleteProduct(index)}
+            />
+          ))}
+        </div>
+      </section>
+
+      <section className="admin-panel">
+        <AdvancedSettings
+          newCategoryTitle={newCategoryTitle}
+          onNewCategoryTitleChange={setNewCategoryTitle}
+          onAddCategory={addCategory}
+          onDeleteSelectedCategory={() => setConfirmState({ type: 'delete-category' })}
+          onResetMenu={() => setConfirmState({ type: 'reset-menu' })}
+          disableDeleteCategory={draft.length <= 1}
+        />
+      </section>
+      </main>
 
       <ProductEditorModal
         isOpen={editorOpen}
@@ -444,6 +420,6 @@ export function Admin() {
 
       <SaveBar visible={hasChanges} onSave={save} />
       {toast && <div className="admin-toast">{toast}</div>}
-    </AdminLayout>
+    </div>
   )
 }
