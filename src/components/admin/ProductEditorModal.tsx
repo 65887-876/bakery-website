@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import type { MenuProduct } from '../../data/menu'
 
@@ -25,6 +25,7 @@ export function ProductEditorModal({
   onSave,
   onUploadImage,
 }: ProductEditorModalProps) {
+  const fileInputId = useId()
   const [draft, setDraft] = useState<MenuProduct>(initialValue)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
@@ -60,6 +61,13 @@ export function ProductEditorModal({
           <h3>{title}</h3>
         </header>
         <div className="admin-modal__content">
+          <div className="admin-modal__preview">
+            {draft.image ? (
+              <img src={draft.image} alt={draft.name || 'Image produit'} />
+            ) : (
+              <div className="admin-modal__preview-empty">Aucune image</div>
+            )}
+          </div>
           <label>
             Nom
             <input
@@ -91,18 +99,20 @@ export function ProductEditorModal({
               onChange={(event) => setDraft((prev) => ({ ...prev, note: event.target.value }))}
             />
           </label>
-          <label>
-            URL image
+          <div className="admin-image-upload">
+            <p>Image du produit (1 image par produit)</p>
             <input
-              value={draft.image ?? ''}
-              onChange={(event) => setDraft((prev) => ({ ...prev, image: event.target.value }))}
-              placeholder="/photos/photo-01.png ou https://..."
+              id={fileInputId}
+              className="admin-file-input"
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              disabled={uploading}
             />
-          </label>
-          <label>
-            Image upload
-            <input type="file" accept="image/*" onChange={handleFileChange} disabled={uploading} />
-          </label>
+            <label htmlFor={fileInputId} className="admin-upload-trigger">
+              {uploading ? 'Upload en cours...' : draft.image ? 'Changer l image' : 'Ajouter une image'}
+            </label>
+          </div>
           {uploading && <p className="admin-inline-info">Upload en cours...</p>}
           {uploadError && <p className="admin-inline-error">{uploadError}</p>}
         </div>
