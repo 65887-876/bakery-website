@@ -160,6 +160,12 @@
   align-items: center;
 }
 
+.admin-products-head__actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.45rem;
+}
+
 .admin-products-head p {
   margin: 0.2rem 0 0;
   color: var(--ink-soft);
@@ -259,6 +265,14 @@
   background: var(--accent-strong);
   border-color: var(--accent-strong);
   color: #fff;
+  flex-shrink: 0;
+}
+
+.admin-back-inline {
+  padding: 0 0.9rem;
+  background: #fff;
+  border-color: var(--line);
+  color: var(--ink-strong);
   flex-shrink: 0;
 }
 

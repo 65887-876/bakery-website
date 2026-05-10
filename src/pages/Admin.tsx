@@ -85,6 +85,7 @@ export function Admin() {
     return data
   })
   const [selectedId, setSelectedId] = useState<string>(() => readMenuData()[0]?.id ?? '')
+  const [screen, setScreen] = useState<'categories' | 'products'>('categories')
   const [toast, setToast] = useState('')
   const [newCategoryTitle, setNewCategoryTitle] = useState('')
   const [savedSnapshot, setSavedSnapshot] = useState<string>(() =>
@@ -347,62 +348,84 @@ export function Admin() {
         </section>
       )}
 
-      <CategorySelector
-        categories={draft}
-        selectedId={selectedId}
-        onSelectCategory={(categoryId) => setSelectedId(categoryId)}
-        onEditCategory={(categoryId) => setSelectedId(categoryId)}
-      />
-
-      <section className="admin-panel admin-panel--products">
-        <div className="admin-products-head">
-          <div>
-            <h2>{selectedCategory?.title ?? 'Selectionnez une categorie'}</h2>
-            <p>{selectedCategory?.items.length ?? 0} produits</p>
-          </div>
-          <button type="button" className="admin-add-inline" onClick={openCreateProductModal} disabled={!selectedCategory}>
-            + Ajouter produit
-          </button>
-        </div>
-
-        {selectedCategory && (
-          <label className="admin-category-meta">
-            Sous-titre categorie
-            <input
-              value={selectedCategory.smallNote ?? ''}
-              onChange={(event) =>
-                updateCategory(selectedCategory.id, {
-                  smallNote: event.target.value,
-                })
-              }
-            />
-          </label>
-        )}
-
-        <div className="admin-products-list">
-          {selectedCategory?.items.map((product, index) => (
-            <ProductCard
-              key={`${product.name}-${index}`}
-              categoryId={selectedCategory.id}
-              index={index}
-              product={product}
-              onEdit={() => openEditProductModal(index)}
-              onDelete={() => requestDeleteProduct(index)}
-            />
-          ))}
-        </div>
-      </section>
-
-      <section className="admin-panel">
-        <AdvancedSettings
-          newCategoryTitle={newCategoryTitle}
-          onNewCategoryTitleChange={setNewCategoryTitle}
-          onAddCategory={addCategory}
-          onDeleteSelectedCategory={() => setConfirmState({ type: 'delete-category' })}
-          onResetMenu={() => setConfirmState({ type: 'reset-menu' })}
-          disableDeleteCategory={draft.length <= 1}
+      {screen === 'categories' && (
+        <CategorySelector
+          categories={draft}
+          selectedId={selectedId}
+          onSelectCategory={(categoryId) => {
+            setSelectedId(categoryId)
+            setScreen('products')
+          }}
+          onEditCategory={(categoryId) => {
+            setSelectedId(categoryId)
+            setScreen('products')
+          }}
         />
-      </section>
+      )}
+
+      {screen === 'products' && (
+        <>
+          <section className="admin-panel admin-panel--products">
+            <div className="admin-products-head">
+              <div>
+                <h2>{selectedCategory?.title ?? 'Selectionnez une categorie'}</h2>
+                <p>{selectedCategory?.items.length ?? 0} produits</p>
+              </div>
+              <div className="admin-products-head__actions">
+                <button type="button" className="admin-back-inline" onClick={() => setScreen('categories')}>
+                  Changer categorie
+                </button>
+                <button
+                  type="button"
+                  className="admin-add-inline"
+                  onClick={openCreateProductModal}
+                  disabled={!selectedCategory}
+                >
+                  + Ajouter produit
+                </button>
+              </div>
+            </div>
+
+            {selectedCategory && (
+              <label className="admin-category-meta">
+                Sous-titre categorie
+                <input
+                  value={selectedCategory.smallNote ?? ''}
+                  onChange={(event) =>
+                    updateCategory(selectedCategory.id, {
+                      smallNote: event.target.value,
+                    })
+                  }
+                />
+              </label>
+            )}
+
+            <div className="admin-products-list">
+              {selectedCategory?.items.map((product, index) => (
+                <ProductCard
+                  key={`${product.name}-${index}`}
+                  categoryId={selectedCategory.id}
+                  index={index}
+                  product={product}
+                  onEdit={() => openEditProductModal(index)}
+                  onDelete={() => requestDeleteProduct(index)}
+                />
+              ))}
+            </div>
+          </section>
+
+          <section className="admin-panel">
+            <AdvancedSettings
+              newCategoryTitle={newCategoryTitle}
+              onNewCategoryTitleChange={setNewCategoryTitle}
+              onAddCategory={addCategory}
+              onDeleteSelectedCategory={() => setConfirmState({ type: 'delete-category' })}
+              onResetMenu={() => setConfirmState({ type: 'reset-menu' })}
+              disableDeleteCategory={draft.length <= 1}
+            />
+          </section>
+        </>
+      )}
       </main>
 
       <ProductEditorModal
