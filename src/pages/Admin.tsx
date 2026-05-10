@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { isCloudinaryConfigured, uploadImageToCloudinary } from '../config/cloudinary'
 import { menuSections, type MenuCategory } from '../data/menu'
@@ -62,7 +62,6 @@ export function Admin() {
   const [status, setStatus] = useState('')
   const [newCategoryTitle, setNewCategoryTitle] = useState('')
   const [uploadingKey, setUploadingKey] = useState('')
-  const touchStartX = useRef<number | null>(null)
 
   const selectedIndex = useMemo(
     () => draft.findIndex((section) => section.id === selectedId),
@@ -77,21 +76,15 @@ export function Admin() {
     writeMenuData(nextData)
   }, [])
 
-  function updateSection(next: Partial<MenuCategory>, options?: { persist?: boolean }) {
+  function updateSection(next: Partial<MenuCategory>) {
     if (selectedIndex < 0 || !selected) return
     const nextDraft = deepClone(draft)
     nextDraft[selectedIndex] = { ...selected, ...next }
     setDraft(nextDraft)
-    if (options?.persist ?? true) {
-      writeMenuData(nextDraft)
-    }
+    writeMenuData(nextDraft)
   }
 
-  function updateItem(
-    itemIndex: number,
-    next: Partial<MenuCategory['items'][number]>,
-    options?: { persist?: boolean },
-  ) {
+  function updateItem(itemIndex: number, next: Partial<MenuCategory['items'][number]>) {
     if (selectedIndex < 0 || !selected?.items[itemIndex]) return
     const nextDraft = deepClone(draft)
     nextDraft[selectedIndex].items[itemIndex] = {
@@ -99,9 +92,7 @@ export function Admin() {
       ...next,
     }
     setDraft(nextDraft)
-    if (options?.persist ?? true) {
-      writeMenuData(nextDraft)
-    }
+    writeMenuData(nextDraft)
   }
 
   function addProduct() {
@@ -129,7 +120,7 @@ export function Admin() {
 
   function save() {
     writeMenuData(draft)
-    setStatus('Sauvegarde reussie.')
+    setStatus('Sauvegarde reussie')
     setTimeout(() => setStatus(''), 1800)
   }
 
@@ -138,34 +129,8 @@ export function Admin() {
     resetMenuData()
     setDraft(defaults)
     setSelectedId(defaults[0]?.id ?? '')
-    setStatus('Menu reinitialise.')
+    setStatus('Menu reinitialise')
     setTimeout(() => setStatus(''), 1800)
-  }
-
-  function moveCategory(direction: 'up' | 'down') {
-    if (selectedIndex < 0) return
-    const targetIndex = direction === 'up' ? selectedIndex - 1 : selectedIndex + 1
-    if (targetIndex < 0 || targetIndex >= draft.length) return
-
-    const nextDraft = deepClone(draft)
-    const [moved] = nextDraft.splice(selectedIndex, 1)
-    nextDraft.splice(targetIndex, 0, moved)
-    setDraft(nextDraft)
-    writeMenuData(nextDraft)
-  }
-
-  function onCategoryTouchStart(clientX: number) {
-    touchStartX.current = clientX
-  }
-
-  function onCategoryTouchEnd(sectionId: string, clientX: number) {
-    if (sectionId !== selectedId) return
-    if (touchStartX.current === null) return
-    const deltaX = clientX - touchStartX.current
-    touchStartX.current = null
-    if (Math.abs(deltaX) < 45) return
-    if (deltaX > 0) moveCategory('up')
-    if (deltaX < 0) moveCategory('down')
   }
 
   function addCategory() {
@@ -224,14 +189,14 @@ export function Admin() {
 
     try {
       const imageUrl = await uploadImageToCloudinary(file)
-      updateItem(itemIndex, { image: imageUrl }, { persist: true })
-      setStatus('Image envoyee et sauvegardee.')
+      updateItem(itemIndex, { image: imageUrl })
+      setStatus('Image envoyee')
     } catch (error) {
       // Keep admin usable even when Cloudinary is unavailable in local dev.
       try {
         const localImage = await readFileAsDataUrl(file)
-        updateItem(itemIndex, { image: localImage }, { persist: true })
-        setStatus('Cloudinary indisponible. Image sauvegardee localement sur cet appareil.')
+        updateItem(itemIndex, { image: localImage })
+        setStatus('Image sauvegardee localement')
       } catch {
         const message = error instanceof Error ? error.message : 'Echec upload image.'
         setStatus(message)
@@ -246,8 +211,8 @@ export function Admin() {
   return (
     <div className="admin-page">
       <div className="admin-page__head">
-        <h1>Admin menu</h1>
-        <p>Modifier les titres, prix et images (lettres latines uniquement).</p>
+        <h1>Admin menu simple</h1>
+        <p>Etape 1: choisir une categorie. Etape 2: modifier les produits. Etape 3: sauvegarder.</p>
         {!isCloudinaryConfigured() && (
           <p className="admin-cloudinary-alert">
             Cloudinary non configure. Upload distant desactive, sauvegarde locale active.
@@ -255,190 +220,170 @@ export function Admin() {
         )}
       </div>
 
-      <div className="admin-layout">
-        <aside className="admin-side">
-          <div className="admin-add-cat">
-            <input
-              value={newCategoryTitle}
-              placeholder="Nouvelle categorie"
-              onChange={(event) => setNewCategoryTitle(onlyLatin(event.target.value))}
-            />
-            <button type="button" onClick={addCategory}>
-              Ajouter
-            </button>
-          </div>
+      <section className="admin-editor">
+        <div className="admin-basic-top">
+          <label>
+            Categorie
+            <select value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>
+              {draft.map((section) => (
+                <option key={section.id} value={section.id}>
+                  {section.title}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button type="button" onClick={addProduct} disabled={!selected}>
+            + Ajouter produit
+          </button>
+        </div>
 
-          <div className="admin-sections">
-            {draft.map((section) => (
-              <button
-                key={section.id}
-                type="button"
-                className={section.id === selectedId ? 'admin-sec admin-sec--active' : 'admin-sec'}
-                onClick={() => setSelectedId(section.id)}
-                onTouchStart={(event) =>
-                  onCategoryTouchStart(event.changedTouches[0]?.clientX ?? 0)
-                }
-                onTouchEnd={(event) =>
-                  onCategoryTouchEnd(section.id, event.changedTouches[0]?.clientX ?? 0)
-                }
-              >
-                {section.title}
-              </button>
-            ))}
-          </div>
-        </aside>
+        {!selected && <p>Selectionnez une categorie.</p>}
+        {selected && (
+          <>
+            <div className="admin-fieldset">
+              <label htmlFor="cat-title">Titre categorie</label>
+              <input
+                id="cat-title"
+                value={selected.title}
+                onChange={(event) => updateSection({ title: onlyLatin(event.target.value) })}
+              />
+            </div>
+            <div className="admin-fieldset">
+              <label htmlFor="cat-note">Sous titre categorie</label>
+              <input
+                id="cat-note"
+                value={selected.smallNote ?? ''}
+                onChange={(event) => updateSection({ smallNote: onlyLatin(event.target.value) })}
+              />
+            </div>
 
-        <section className="admin-editor">
-          {!selected && <p>Selectionnez une categorie.</p>}
-          {selected && (
-            <>
-              <div className="admin-cat-actions">
-                <button type="button" onClick={() => moveCategory('up')}>
-                  Monter
-                </button>
-                <button type="button" onClick={() => moveCategory('down')}>
-                  Descendre
-                </button>
-                <button type="button" className="admin-cat-actions__danger" onClick={removeSelectedCategory}>
-                  Supprimer categorie
-                </button>
-                <p className="admin-swipe-tip">Categorie active: swipe droite = monter, gauche = descendre.</p>
-              </div>
+            <h2 className="admin-editor__title">Produits ({selected.items.length})</h2>
+            {selected.items.length === 0 && (
+              <p className="admin-empty-products">Aucun produit. Appuyez sur + Ajouter produit.</p>
+            )}
 
-              <div className="admin-fieldset">
-                <label htmlFor="cat-title">Titre categorie</label>
-                <input
-                  id="cat-title"
-                  value={selected.title}
-                  onChange={(event) =>
-                    updateSection({ title: onlyLatin(event.target.value) }, { persist: true })
-                  }
-                />
-              </div>
-              <div className="admin-fieldset">
-                <label htmlFor="cat-note">Sous titre categorie</label>
-                <input
-                  id="cat-note"
-                  value={selected.smallNote ?? ''}
-                  onChange={(event) =>
-                    updateSection({ smallNote: onlyLatin(event.target.value) }, { persist: true })
-                  }
-                />
-              </div>
-
-              <h2 className="admin-editor__title">Produits</h2>
-              <div className="admin-product-actions">
-                <button type="button" onClick={addProduct}>
-                  Ajouter produit
-                </button>
-              </div>
-              {selected.items.length === 0 && (
-                <p className="admin-empty-products">Aucun produit. Appuyez sur "Ajouter produit".</p>
-              )}
-              <div className="admin-items">
-                {selected.items.map((item, idx) => (
-                  <article key={`${selected.id}-${idx}`} className="admin-item">
-                    {uploadingKey === `${selected.id}-${idx}` && (
-                      <p className="admin-uploading">Upload en cours...</p>
-                    )}
-                    <div className="admin-item__grid">
-                      <label>
-                        Titre
-                        <input
-                          value={item.name}
-                          onChange={(event) =>
-                            updateItem(idx, { name: onlyLatin(event.target.value) }, { persist: true })
-                          }
-                        />
-                      </label>
-                      <label>
-                        Prix
-                        <input
-                          type="number"
-                          value={item.price}
-                          onChange={(event) =>
-                            updateItem(idx, {
-                              price: Number.parseInt(event.target.value || '0', 10),
-                            }, { persist: true })
-                          }
-                        />
-                      </label>
-                    </div>
+            <div className="admin-items">
+              {selected.items.map((item, idx) => (
+                <article key={`${selected.id}-${idx}`} className="admin-item">
+                  <p className="admin-item__index">Produit {idx + 1}</p>
+                  {uploadingKey === `${selected.id}-${idx}` && (
+                    <p className="admin-uploading">Upload en cours...</p>
+                  )}
+                  <div className="admin-item__grid">
                     <label>
-                      Description
+                      Nom
                       <input
-                        value={item.details ?? ''}
+                        value={item.name}
+                        onChange={(event) => updateItem(idx, { name: onlyLatin(event.target.value) })}
+                      />
+                    </label>
+                    <label>
+                      Prix (DA)
+                      <input
+                        type="number"
+                        value={item.price}
                         onChange={(event) =>
-                          updateItem(idx, { details: onlyLatin(event.target.value) }, { persist: true })
+                          updateItem(idx, {
+                            price: Number.parseInt(event.target.value || '0', 10),
+                          })
                         }
                       />
                     </label>
-                    <label>
-                      Note
-                      <input
-                        value={item.note ?? ''}
-                        onChange={(event) =>
-                          updateItem(idx, { note: onlyLatin(event.target.value) }, { persist: true })
-                        }
-                      />
-                    </label>
-                    <label>
-                      URL image
-                      <input
-                        value={item.image ?? ''}
-                        onChange={(event) =>
-                          updateItem(idx, { image: event.target.value }, { persist: true })
-                        }
-                        placeholder="/photos/photo-01.png ou https://..."
-                      />
-                    </label>
-                    <label>
-                      Image produit
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(event) => handleImageUpload(idx, event)}
-                        disabled={uploadingKey === `${selected.id}-${idx}`}
-                      />
-                    </label>
-                    <div className="admin-image-actions">
-                      <button
-                        type="button"
-                        className="admin-image-actions__danger"
-                        onClick={() => removeProduct(idx)}
-                      >
-                        Supprimer produit
-                      </button>
-                      <button
-                        type="button"
-                        className="admin-image-actions__ghost"
-                        onClick={() => {
-                          updateItem(idx, { image: '' }, { persist: true })
-                          setStatus('Image retiree et sauvegardee.')
-                        }}
-                      >
-                        Retirer image perso
-                      </button>
-                    </div>
-                    <img
-                      src={itemPhoto(selected.id, idx, item.name, item.image)}
-                      alt={item.name}
-                      className="admin-image-preview"
+                  </div>
+
+                  <label>
+                    Description
+                    <input
+                      value={item.details ?? ''}
+                      onChange={(event) => updateItem(idx, { details: onlyLatin(event.target.value) })}
                     />
-                  </article>
-                ))}
+                  </label>
+                  <label>
+                    Note courte
+                    <input
+                      value={item.note ?? ''}
+                      onChange={(event) => updateItem(idx, { note: onlyLatin(event.target.value) })}
+                    />
+                  </label>
+                  <label>
+                    URL image
+                    <input
+                      value={item.image ?? ''}
+                      onChange={(event) => updateItem(idx, { image: event.target.value })}
+                      placeholder="/photos/photo-01.png ou https://..."
+                    />
+                  </label>
+                  <label>
+                    Upload image
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(event) => handleImageUpload(idx, event)}
+                      disabled={uploadingKey === `${selected.id}-${idx}`}
+                    />
+                  </label>
+
+                  <div className="admin-image-actions">
+                    <button
+                      type="button"
+                      className="admin-image-actions__ghost"
+                      onClick={() => {
+                        updateItem(idx, { image: '' })
+                        setStatus('Image retiree')
+                      }}
+                    >
+                      Retirer image
+                    </button>
+                    <button
+                      type="button"
+                      className="admin-image-actions__danger"
+                      onClick={() => removeProduct(idx)}
+                    >
+                      Supprimer produit
+                    </button>
+                  </div>
+                  <img
+                    src={itemPhoto(selected.id, idx, item.name, item.image)}
+                    alt={item.name}
+                    className="admin-image-preview"
+                  />
+                </article>
+              ))}
+            </div>
+
+            <details className="admin-advanced">
+              <summary>Options avancees</summary>
+              <div className="admin-advanced__content">
+                <div className="admin-add-cat">
+                  <input
+                    value={newCategoryTitle}
+                    placeholder="Nouvelle categorie"
+                    onChange={(event) => setNewCategoryTitle(onlyLatin(event.target.value))}
+                  />
+                  <button type="button" onClick={addCategory}>
+                    Ajouter categorie
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  className="admin-cat-actions__danger"
+                  onClick={removeSelectedCategory}
+                  disabled={draft.length <= 1}
+                >
+                  Supprimer categorie selectionnee
+                </button>
+                <button type="button" className="admin-actions__ghost" onClick={restoreDefaults}>
+                  Reinitialiser tout le menu
+                </button>
               </div>
-            </>
-          )}
-        </section>
-      </div>
+            </details>
+          </>
+        )}
+      </section>
 
       <div className="admin-actions">
         <button type="button" onClick={save}>
           Sauvegarder
-        </button>
-        <button type="button" className="admin-actions__ghost" onClick={restoreDefaults}>
-          Reinitialiser
         </button>
         {status && <p>{status}</p>}
       </div>
