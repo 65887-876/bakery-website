@@ -1,23 +1,26 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { ChangeEvent } from 'react'
-import { isCloudinaryConfigured, uploadImageToCloudinary } from '../config/cloudinary'
-import { menuSections, type MenuCategory } from '../data/menu'
+import { uploadImageToCloudinary } from '../config/cloudinary'
+import { AdvancedSettings } from '../components/admin/AdvancedSettings'
+import { AdminLayout } from '../components/admin/AdminLayout'
+import { CategorySelector } from '../components/admin/CategorySelector'
+import { ConfirmModal } from '../components/admin/ConfirmModal'
+import { ProductCard } from '../components/admin/ProductCard'
+import { ProductEditorModal } from '../components/admin/ProductEditorModal'
+import { SaveBar } from '../components/admin/SaveBar'
+import { menuSections, type MenuCategory, type MenuProduct } from '../data/menu'
 import { itemPhoto } from '../data/menuImages'
-import { readMenuData, resetMenuData, writeMenuData } from '../data/menuStore'
+import { readMenuData, writeMenuData } from '../data/menuStore'
 import './Admin.css'
 
-function onlyLatin(value: string): string {
-  // Remove Arabic script characters while keeping latin text and punctuation.
-  return value.replace(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/g, '')
-}
+const UNSAVED_DRAFT_KEY = 'bakery.menu.admin.unsaved.v2'
 
 function deepClone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
 }
 
-function hydrateMissingImages(data: MenuCategory[]): { nextData: MenuCategory[]; changed: boolean } {
+function hydrateMissingImages(data: MenuCategory[]): { data: MenuCategory[]; changed: boolean } {
   let changed = false
-  const nextData = data.map((section) => ({
+  const hydrated = data.map((section) => ({
     ...section,
     items: section.items.map((item, itemIndex) => {
       const hasImage = Boolean(item.image && item.image.trim().length > 0)
@@ -30,11 +33,11 @@ function hydrateMissingImages(data: MenuCategory[]): { nextData: MenuCategory[];
     }),
   }))
 
-  return { nextData, changed }
+  return { data: hydrated, changed }
 }
 
 function toId(value: string): string {
-  const base = onlyLatin(value)
+  const base = value
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
@@ -56,85 +59,145 @@ async function readFileAsDataUrl(file: File): Promise<string> {
   })
 }
 
-export function Admin() {
-  const [draft, setDraft] = useState<MenuCategory[]>(() => readMenuData())
-  const [selectedId, setSelectedId] = useState<string>(draft[0]?.id ?? '')
-  const [status, setStatus] = useState('')
-  const [newCategoryTitle, setNewCategoryTitle] = useState('')
-  const [uploadingKey, setUploadingKey] = useState('')
+function emptyProduct(): MenuProduct {
+  return {
+    name: '',
+    price: 0,
+    details: '',
+    note: '',
+    image: '',
+  }
+}
 
-  const selectedIndex = useMemo(
-    () => draft.findIndex((section) => section.id === selectedId),
+type ConfirmState =
+  | { type: 'delete-product'; productIndex: number }
+  | { type: 'delete-category' }
+  | { type: 'reset-menu' }
+  | null
+
+type RecoverDraft = {
+  data: MenuCategory[]
+  selectedCategoryId?: string
+}
+
+export function Admin() {
+  const [draft, setDraft] = useState<MenuCategory[]>(() => {
+    const { data, changed } = hydrateMissingImages(readMenuData())
+    if (changed) writeMenuData(data)
+    return data
+  })
+  const [selectedId, setSelectedId] = useState<string>(() => readMenuData()[0]?.id ?? '')
+  const [activeTab, setActiveTab] = useState<'categories' | 'products' | 'settings'>('categories')
+  const [toast, setToast] = useState('')
+  const [newCategoryTitle, setNewCategoryTitle] = useState('')
+  const [savedSnapshot, setSavedSnapshot] = useState<string>(() =>
+    JSON.stringify(hydrateMissingImages(readMenuData()).data),
+  )
+  const [editorOpen, setEditorOpen] = useState(false)
+  const [editorMode, setEditorMode] = useState<'create' | 'edit'>('create')
+  const [editingProductIndex, setEditingProductIndex] = useState<number | null>(null)
+  const [editorInitialValue, setEditorInitialValue] = useState<MenuProduct>(emptyProduct())
+  const [confirmState, setConfirmState] = useState<ConfirmState>(null)
+  const [recoverDraft, setRecoverDraft] = useState<RecoverDraft | null>(null)
+
+  const selectedCategory = useMemo(
+    () => draft.find((section) => section.id === selectedId) ?? null,
     [draft, selectedId],
   )
-  const selected = selectedIndex >= 0 ? draft[selectedIndex] : null
+  const serializedDraft = useMemo(() => JSON.stringify(draft), [draft])
+  const hasChanges = serializedDraft !== savedSnapshot
 
   useEffect(() => {
-    const { nextData, changed } = hydrateMissingImages(readMenuData())
-    if (!changed) return
-    setDraft(nextData)
-    writeMenuData(nextData)
-  }, [])
+    if (!selectedCategory && draft[0]) {
+      setSelectedId(draft[0].id)
+    }
+  }, [selectedCategory, draft])
 
-  function updateSection(next: Partial<MenuCategory>) {
-    if (selectedIndex < 0 || !selected) return
-    const nextDraft = deepClone(draft)
-    nextDraft[selectedIndex] = { ...selected, ...next }
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const raw = window.localStorage.getItem(UNSAVED_DRAFT_KEY)
+    if (!raw) return
+
+    try {
+      const parsed = JSON.parse(raw) as RecoverDraft
+      if (!Array.isArray(parsed.data) || parsed.data.length === 0) {
+        window.localStorage.removeItem(UNSAVED_DRAFT_KEY)
+        return
+      }
+      if (JSON.stringify(parsed.data) !== savedSnapshot) {
+        setRecoverDraft(parsed)
+      } else {
+        window.localStorage.removeItem(UNSAVED_DRAFT_KEY)
+      }
+    } catch {
+      window.localStorage.removeItem(UNSAVED_DRAFT_KEY)
+    }
+  }, [savedSnapshot])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (!hasChanges) {
+      window.localStorage.removeItem(UNSAVED_DRAFT_KEY)
+      return
+    }
+    window.localStorage.setItem(
+      UNSAVED_DRAFT_KEY,
+      JSON.stringify({
+        data: draft,
+        selectedCategoryId: selectedId,
+      }),
+    )
+  }, [draft, selectedId, hasChanges])
+
+  useEffect(() => {
+    if (!toast) return
+    const timeout = window.setTimeout(() => setToast(''), 2200)
+    return () => window.clearTimeout(timeout)
+  }, [toast])
+
+  function updateCategory(categoryId: string, next: Partial<MenuCategory>) {
+    const nextDraft = draft.map((section) => (section.id === categoryId ? { ...section, ...next } : section))
     setDraft(nextDraft)
-    writeMenuData(nextDraft)
   }
 
-  function updateItem(itemIndex: number, next: Partial<MenuCategory['items'][number]>) {
-    if (selectedIndex < 0 || !selected?.items[itemIndex]) return
+  function saveProduct(nextProduct: MenuProduct) {
+    if (!selectedCategory) return
     const nextDraft = deepClone(draft)
-    nextDraft[selectedIndex].items[itemIndex] = {
-      ...nextDraft[selectedIndex].items[itemIndex],
-      ...next,
+    const categoryIndex = nextDraft.findIndex((section) => section.id === selectedCategory.id)
+    if (categoryIndex < 0) return
+    if (editorMode === 'create') {
+      nextDraft[categoryIndex].items.push(nextProduct)
+    } else if (
+      typeof editingProductIndex === 'number' &&
+      nextDraft[categoryIndex].items[editingProductIndex]
+    ) {
+      nextDraft[categoryIndex].items[editingProductIndex] = nextProduct
     }
     setDraft(nextDraft)
-    writeMenuData(nextDraft)
-  }
-
-  function addProduct() {
-    if (selectedIndex < 0) return
-    const nextDraft = deepClone(draft)
-    nextDraft[selectedIndex].items.push({
-      name: 'Nouveau produit',
-      price: 0,
-      details: '',
-      note: '',
-      image: '',
-    })
-    setDraft(nextDraft)
-    writeMenuData(nextDraft)
-  }
-
-  function removeProduct(itemIndex: number) {
-    if (selectedIndex < 0) return
-    const nextDraft = deepClone(draft)
-    if (!nextDraft[selectedIndex].items[itemIndex]) return
-    nextDraft[selectedIndex].items.splice(itemIndex, 1)
-    setDraft(nextDraft)
-    writeMenuData(nextDraft)
+    setEditorOpen(false)
+    setToast(editorMode === 'create' ? 'Produit ajoute' : 'Produit modifie')
   }
 
   function save() {
     writeMenuData(draft)
-    setStatus('Sauvegarde reussie')
-    setTimeout(() => setStatus(''), 1800)
+    setSavedSnapshot(serializedDraft)
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(UNSAVED_DRAFT_KEY)
+    }
+    setToast('Sauvegarde reussie')
   }
 
-  function restoreDefaults() {
+  function restoreDefaultsConfirmed() {
     const defaults = deepClone(menuSections)
-    resetMenuData()
     setDraft(defaults)
     setSelectedId(defaults[0]?.id ?? '')
-    setStatus('Menu reinitialise')
-    setTimeout(() => setStatus(''), 1800)
+    setEditorOpen(false)
+    setConfirmState(null)
+    setToast('Menu reinitialise')
   }
 
   function addCategory() {
-    const cleanTitle = onlyLatin(newCategoryTitle).trim()
+    const cleanTitle = newCategoryTitle.trim()
     if (!cleanTitle) return
 
     const ids = new Set(draft.map((section) => section.id))
@@ -154,239 +217,233 @@ export function Admin() {
 
     const nextDraft = [...draft, next]
     setDraft(nextDraft)
-    writeMenuData(nextDraft)
     setSelectedId(next.id)
     setNewCategoryTitle('')
+    setActiveTab('categories')
+    setToast('Categorie ajoutee')
   }
 
-  function removeSelectedCategory() {
-    if (!selected || draft.length <= 1) return
-    const nextDraft = draft.filter((section) => section.id !== selected.id)
+  function removeSelectedCategoryConfirmed() {
+    if (!selectedCategory || draft.length <= 1) return
+    const nextDraft = draft.filter((section) => section.id !== selectedCategory.id)
     setDraft(nextDraft)
-    writeMenuData(nextDraft)
     setSelectedId(nextDraft[0]?.id ?? '')
+    setConfirmState(null)
+    setToast('Categorie supprimee')
   }
 
-  async function handleImageUpload(itemIndex: number, event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
-    if (!file) return
-
-    if (!isCloudinaryConfigured()) {
-      setStatus('Cloudinary non configure. Ajoutez VITE_CLOUDINARY_CLOUD_NAME.')
-      event.target.value = ''
-      return
-    }
-
+  async function uploadImage(file: File): Promise<string> {
     if (file.size > 8 * 1024 * 1024) {
-      setStatus('Image trop lourde. Maximum 8MB.')
-      event.target.value = ''
-      return
+      throw new Error('Image trop lourde. Maximum 8MB.')
     }
-
-    const key = `${selectedId}-${itemIndex}`
-    setUploadingKey(key)
-    setStatus('Upload image en cours...')
 
     try {
-      const imageUrl = await uploadImageToCloudinary(file)
-      updateItem(itemIndex, { image: imageUrl })
-      setStatus('Image envoyee')
+      return await uploadImageToCloudinary(file)
     } catch (error) {
-      // Keep admin usable even when Cloudinary is unavailable in local dev.
       try {
-        const localImage = await readFileAsDataUrl(file)
-        updateItem(itemIndex, { image: localImage })
-        setStatus('Image sauvegardee localement')
+        return await readFileAsDataUrl(file)
       } catch {
-        const message = error instanceof Error ? error.message : 'Echec upload image.'
-        setStatus(message)
+        const message = error instanceof Error ? error.message : 'Echec upload image'
+        throw new Error(message)
       }
-    } finally {
-      setUploadingKey('')
-      // reset input so the same file can be re-selected
-      event.target.value = ''
     }
   }
 
-  return (
-    <div className="admin-page">
-      <div className="admin-page__head">
-        <h1>Admin menu simple</h1>
-        <p>Etape 1: choisir une categorie. Etape 2: modifier les produits. Etape 3: sauvegarder.</p>
-        {!isCloudinaryConfigured() && (
-          <p className="admin-cloudinary-alert">
-            Cloudinary non configure. Upload distant desactive, sauvegarde locale active.
-          </p>
-        )}
-      </div>
+  function requestDeleteProduct(productIndex: number) {
+    setConfirmState({ type: 'delete-product', productIndex })
+  }
 
-      <section className="admin-editor">
-        <div className="admin-basic-top">
-          <label>
-            Categorie
-            <select value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>
-              {draft.map((section) => (
-                <option key={section.id} value={section.id}>
-                  {section.title}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button type="button" onClick={addProduct} disabled={!selected}>
+  function runConfirmedAction() {
+    if (!confirmState) return
+    if (confirmState.type === 'delete-product' && selectedCategory) {
+      const nextDraft = deepClone(draft)
+      const categoryIndex = nextDraft.findIndex((section) => section.id === selectedCategory.id)
+      if (categoryIndex >= 0 && nextDraft[categoryIndex].items[confirmState.productIndex]) {
+        nextDraft[categoryIndex].items.splice(confirmState.productIndex, 1)
+        setDraft(nextDraft)
+        setToast('Produit supprime')
+      }
+      setConfirmState(null)
+      return
+    }
+
+    if (confirmState.type === 'delete-category') {
+      removeSelectedCategoryConfirmed()
+      return
+    }
+
+    if (confirmState.type === 'reset-menu') {
+      restoreDefaultsConfirmed()
+    }
+  }
+
+  function openCreateProductModal() {
+    setEditorMode('create')
+    setEditingProductIndex(null)
+    setEditorInitialValue(emptyProduct())
+    setEditorOpen(true)
+  }
+
+  function openEditProductModal(productIndex: number) {
+    if (!selectedCategory?.items[productIndex]) return
+    setEditorMode('edit')
+    setEditingProductIndex(productIndex)
+    setEditorInitialValue(deepClone(selectedCategory.items[productIndex]))
+    setEditorOpen(true)
+  }
+
+  function restoreRecoveredDraft() {
+    if (!recoverDraft?.data?.length) return
+    setDraft(recoverDraft.data)
+    setSelectedId(recoverDraft.selectedCategoryId ?? recoverDraft.data[0].id)
+    setRecoverDraft(null)
+    setToast('Brouillon restaure')
+  }
+
+  function ignoreRecoveredDraft() {
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(UNSAVED_DRAFT_KEY)
+    }
+    setRecoverDraft(null)
+  }
+
+  const confirmTitle =
+    confirmState?.type === 'delete-product'
+      ? 'Supprimer ce produit ?'
+      : confirmState?.type === 'delete-category'
+        ? 'Supprimer cette categorie ?'
+        : 'Reinitialiser tout le menu ?'
+
+  const confirmMessage =
+    confirmState?.type === 'delete-product'
+      ? 'Cette action retire le produit de la liste.'
+      : confirmState?.type === 'delete-category'
+        ? 'Cette action retire la categorie entiere.'
+        : 'Cette action ecrase toutes les modifications locales.'
+
+  return (
+    <AdminLayout activeTab={activeTab} onTabChange={setActiveTab}>
+      {recoverDraft && (
+        <section className="admin-recover">
+          <p>Des modifications non sauvegardees ont ete retrouvees.</p>
+          <div>
+            <button type="button" onClick={restoreRecoveredDraft}>
+              Restaurer
+            </button>
+            <button type="button" className="ghost" onClick={ignoreRecoveredDraft}>
+              Ignorer
+            </button>
+          </div>
+        </section>
+      )}
+
+      {activeTab === 'categories' && (
+        <CategorySelector
+          categories={draft}
+          selectedId={selectedId}
+          onSelectCategory={(categoryId) => {
+            setSelectedId(categoryId)
+            setActiveTab('products')
+          }}
+          onEditCategory={(categoryId) => {
+            setSelectedId(categoryId)
+            setActiveTab('products')
+          }}
+        />
+      )}
+
+      {activeTab === 'products' && (
+        <section className="admin-panel">
+          <div className="admin-products-head">
+            <h2>{selectedCategory?.title ?? 'Selectionnez une categorie'}</h2>
+            <p>{selectedCategory?.items.length ?? 0} produits</p>
+          </div>
+
+          {selectedCategory && (
+            <label className="admin-category-meta">
+              Sous-titre categorie
+              <input
+                value={selectedCategory.smallNote ?? ''}
+                onChange={(event) =>
+                  updateCategory(selectedCategory.id, {
+                    smallNote: event.target.value,
+                  })
+                }
+              />
+            </label>
+          )}
+
+          <div className="admin-products-list">
+            {selectedCategory?.items.map((product, index) => (
+              <ProductCard
+                key={`${product.name}-${index}`}
+                categoryId={selectedCategory.id}
+                index={index}
+                product={product}
+                onEdit={() => openEditProductModal(index)}
+                onDelete={() => requestDeleteProduct(index)}
+              />
+            ))}
+          </div>
+
+          <button
+            type="button"
+            className="admin-fab"
+            onClick={openCreateProductModal}
+            disabled={!selectedCategory}
+          >
             + Ajouter produit
           </button>
-        </div>
+        </section>
+      )}
 
-        {!selected && <p>Selectionnez une categorie.</p>}
-        {selected && (
-          <>
-            <div className="admin-fieldset">
-              <label htmlFor="cat-title">Titre categorie</label>
+      {activeTab === 'settings' && (
+        <section className="admin-panel">
+          <h2>Parametres</h2>
+          {selectedCategory && (
+            <label className="admin-category-meta">
+              Nom categorie
               <input
-                id="cat-title"
-                value={selected.title}
-                onChange={(event) => updateSection({ title: onlyLatin(event.target.value) })}
+                value={selectedCategory.title}
+                onChange={(event) =>
+                  updateCategory(selectedCategory.id, {
+                    title: event.target.value,
+                  })
+                }
               />
-            </div>
-            <div className="admin-fieldset">
-              <label htmlFor="cat-note">Sous titre categorie</label>
-              <input
-                id="cat-note"
-                value={selected.smallNote ?? ''}
-                onChange={(event) => updateSection({ smallNote: onlyLatin(event.target.value) })}
-              />
-            </div>
+            </label>
+          )}
+          <AdvancedSettings
+            newCategoryTitle={newCategoryTitle}
+            onNewCategoryTitleChange={setNewCategoryTitle}
+            onAddCategory={addCategory}
+            onDeleteSelectedCategory={() => setConfirmState({ type: 'delete-category' })}
+            onResetMenu={() => setConfirmState({ type: 'reset-menu' })}
+            disableDeleteCategory={draft.length <= 1}
+          />
+        </section>
+      )}
 
-            <h2 className="admin-editor__title">Produits ({selected.items.length})</h2>
-            {selected.items.length === 0 && (
-              <p className="admin-empty-products">Aucun produit. Appuyez sur + Ajouter produit.</p>
-            )}
+      <ProductEditorModal
+        isOpen={editorOpen}
+        title={editorMode === 'create' ? 'Ajouter un produit' : 'Modifier le produit'}
+        initialValue={editorInitialValue}
+        onClose={() => setEditorOpen(false)}
+        onSave={saveProduct}
+        onUploadImage={uploadImage}
+      />
 
-            <div className="admin-items">
-              {selected.items.map((item, idx) => (
-                <article key={`${selected.id}-${idx}`} className="admin-item">
-                  <p className="admin-item__index">Produit {idx + 1}</p>
-                  {uploadingKey === `${selected.id}-${idx}` && (
-                    <p className="admin-uploading">Upload en cours...</p>
-                  )}
-                  <div className="admin-item__grid">
-                    <label>
-                      Nom
-                      <input
-                        value={item.name}
-                        onChange={(event) => updateItem(idx, { name: onlyLatin(event.target.value) })}
-                      />
-                    </label>
-                    <label>
-                      Prix (DA)
-                      <input
-                        type="number"
-                        value={item.price}
-                        onChange={(event) =>
-                          updateItem(idx, {
-                            price: Number.parseInt(event.target.value || '0', 10),
-                          })
-                        }
-                      />
-                    </label>
-                  </div>
+      <ConfirmModal
+        open={Boolean(confirmState)}
+        title={confirmTitle}
+        message={confirmMessage}
+        confirmLabel="Oui, confirmer"
+        onCancel={() => setConfirmState(null)}
+        onConfirm={runConfirmedAction}
+      />
 
-                  <label>
-                    Description
-                    <input
-                      value={item.details ?? ''}
-                      onChange={(event) => updateItem(idx, { details: onlyLatin(event.target.value) })}
-                    />
-                  </label>
-                  <label>
-                    Note courte
-                    <input
-                      value={item.note ?? ''}
-                      onChange={(event) => updateItem(idx, { note: onlyLatin(event.target.value) })}
-                    />
-                  </label>
-                  <label>
-                    URL image
-                    <input
-                      value={item.image ?? ''}
-                      onChange={(event) => updateItem(idx, { image: event.target.value })}
-                      placeholder="/photos/photo-01.png ou https://..."
-                    />
-                  </label>
-                  <label>
-                    Upload image
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(event) => handleImageUpload(idx, event)}
-                      disabled={uploadingKey === `${selected.id}-${idx}`}
-                    />
-                  </label>
-
-                  <div className="admin-image-actions">
-                    <button
-                      type="button"
-                      className="admin-image-actions__ghost"
-                      onClick={() => {
-                        updateItem(idx, { image: '' })
-                        setStatus('Image retiree')
-                      }}
-                    >
-                      Retirer image
-                    </button>
-                    <button
-                      type="button"
-                      className="admin-image-actions__danger"
-                      onClick={() => removeProduct(idx)}
-                    >
-                      Supprimer produit
-                    </button>
-                  </div>
-                  <img
-                    src={itemPhoto(selected.id, idx, item.name, item.image)}
-                    alt={item.name}
-                    className="admin-image-preview"
-                  />
-                </article>
-              ))}
-            </div>
-
-            <details className="admin-advanced">
-              <summary>Options avancees</summary>
-              <div className="admin-advanced__content">
-                <div className="admin-add-cat">
-                  <input
-                    value={newCategoryTitle}
-                    placeholder="Nouvelle categorie"
-                    onChange={(event) => setNewCategoryTitle(onlyLatin(event.target.value))}
-                  />
-                  <button type="button" onClick={addCategory}>
-                    Ajouter categorie
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  className="admin-cat-actions__danger"
-                  onClick={removeSelectedCategory}
-                  disabled={draft.length <= 1}
-                >
-                  Supprimer categorie selectionnee
-                </button>
-                <button type="button" className="admin-actions__ghost" onClick={restoreDefaults}>
-                  Reinitialiser tout le menu
-                </button>
-              </div>
-            </details>
-          </>
-        )}
-      </section>
-
-      <div className="admin-actions">
-        <button type="button" onClick={save}>
-          Sauvegarder
-        </button>
-        {status && <p>{status}</p>}
-      </div>
-    </div>
+      <SaveBar visible={hasChanges} onSave={save} />
+      {toast && <div className="admin-toast">{toast}</div>}
+    </AdminLayout>
   )
 }
