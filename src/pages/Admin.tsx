@@ -5,7 +5,6 @@ import { CategorySelector } from '../components/admin/CategorySelector'
 import { ConfirmModal } from '../components/admin/ConfirmModal'
 import { ProductCard } from '../components/admin/ProductCard'
 import { ProductEditorModal } from '../components/admin/ProductEditorModal'
-import { SaveBar } from '../components/admin/SaveBar'
 import { menuSections, type MenuCategory, type MenuProduct } from '../data/menu'
 import { itemPhoto } from '../data/menuImages'
 import { readMenuData, writeMenuData } from '../data/menuStore'
@@ -321,9 +320,15 @@ export function Admin() {
   return (
     <div className="admin-shell">
       <header className="admin-topbar">
-        <div>
+        <div className="admin-topbar__title">
           <p className="admin-topbar__eyebrow">Al Maroua Bakery</p>
           <h1>Gestion du menu</h1>
+        </div>
+        <div className="admin-topbar__actions">
+          <p>{hasChanges ? 'Modifications en cours' : 'Tout est sauvegarde'}</p>
+          <button type="button" onClick={save} disabled={!hasChanges}>
+            Sauvegarder
+          </button>
         </div>
       </header>
 
@@ -418,7 +423,6 @@ export function Admin() {
         onConfirm={runConfirmedAction}
       />
 
-      <SaveBar visible={hasChanges} onSave={save} />
       {toast && <div className="admin-toast">{toast}</div>}
     </div>
   )

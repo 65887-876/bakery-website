@@ -2,7 +2,7 @@
   background: #fff7fc;
   color: var(--ink-strong);
   min-height: 100%;
-  padding-bottom: calc(84px + env(safe-area-inset-bottom));
+  padding-bottom: 1rem;
 }
 
 .admin-shell *,
@@ -15,10 +15,18 @@
   position: sticky;
   top: 0;
   z-index: 50;
-  padding: 0.9rem 1rem;
+  padding: 0.7rem 1rem;
   background: rgba(255, 247, 252, 0.96);
   border-bottom: 1px solid var(--line);
   backdrop-filter: blur(10px);
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+  align-items: flex-end;
+}
+
+.admin-topbar__title {
+  min-width: 0;
 }
 
 .admin-topbar__eyebrow {
@@ -32,8 +40,34 @@
 
 .admin-topbar h1 {
   margin: 0.2rem 0 0;
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   line-height: 1.2;
+}
+
+.admin-topbar__actions {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.admin-topbar__actions p {
+  margin: 0;
+  font-size: 0.76rem;
+  color: var(--ink-soft);
+  text-align: right;
+}
+
+.admin-topbar__actions button {
+  min-height: 42px;
+  border-radius: 12px;
+  border: 1px solid var(--accent-strong);
+  background: var(--accent-strong);
+  color: #fff;
+  padding: 0 0.9rem;
+  font-weight: 700;
+}
+
+.admin-topbar__actions button:disabled {
+  opacity: 0.45;
 }
 
 .admin-content {
@@ -203,7 +237,6 @@
 .admin-recover button,
 .admin-add-cat button,
 .admin-advanced button,
-.admin-savebar button,
 .admin-add-inline {
   min-height: 48px;
   border-radius: 14px;
@@ -338,31 +371,6 @@
   gap: 0.5rem;
 }
 
-.admin-savebar {
-  position: fixed;
-  left: 1rem;
-  right: 1rem;
-  bottom: calc(12px + env(safe-area-inset-bottom));
-  z-index: 70;
-  border-radius: 18px;
-  background: #3a1f2d;
-  color: #fff7fc;
-  padding: 0.65rem;
-  box-shadow: 0 12px 24px rgba(58, 31, 45, 0.38);
-}
-
-.admin-savebar p {
-  margin: 0 0 0.45rem;
-  font-size: 0.88rem;
-}
-
-.admin-savebar button {
-  width: 100%;
-  background: var(--accent-strong);
-  border-color: transparent;
-  color: #fff;
-}
-
 .admin-recover {
   margin-bottom: 0.75rem;
   border-radius: 16px;
@@ -461,11 +469,6 @@ input[type='file'] {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .admin-savebar {
-    left: auto;
-    right: 1rem;
-    width: 340px;
-  }
 }
 
 @media (min-width: 1024px) {
@@ -478,10 +481,4 @@ input[type='file'] {
     margin: 0 auto;
   }
 
-  .admin-savebar {
-    left: auto;
-    right: 1.2rem;
-    bottom: 1.2rem;
-    width: 340px;
-  }
 }
